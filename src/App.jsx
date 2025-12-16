@@ -2,8 +2,14 @@
 import Confetti from "react-confetti";
 
 const scoringOptions = [
+  {
+    title: "Singles",
+    options: [
   { label: "Single 1 (+100)", value: 100 },
   { label: "Single 5 (+50)", value: 50 },
+      ],
+  },
+  {
   { label: "Triple 1s (+300)", value: 300 },
   { label: "Triple 2s (+200)", value: 200 },
   { label: "Triple 3s (+300)", value: 300 },
