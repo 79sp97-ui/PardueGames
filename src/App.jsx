@@ -293,32 +293,41 @@ export default function FarkleCalculator() {
         ))}
       </div>
 
-      {!isStealPhase && !gameOver && (
+            {!isStealPhase && !gameOver && (
         <>
-          <h2 className="text-xl font-bold">Current Turn Points: {turnPoints}</h2>
+          <h2 className="text-xl font-bold">
+            Current Turn Points: {turnPoints}
+          </h2>
+
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {scoringCategories.map((cat, i) => (
-  <div key={i} className="space-y-2">
-    <h3 className="text-lg font-bold text-gray-700">
-      {cat.title}
-    </h3>
+              <div key={i} className="space-y-2">
+                <h3 className="text-lg font-bold text-gray-700">
+                  {cat.title}
+                </h3>
 
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-      {cat.options.map((opt, idx) => (
-        <button
-          key={idx}
-          className="bg-white border border-gray-300 rounded-xl p-3
-                     shadow-md active:scale-95 transition
-                     font-bold text-lg touch-manipulation"
-          onClick={() => addPoints(opt.value)}
-        >
-          <div>{opt.label}</div>
-          <div className="text-sm text-gray-500">+{opt.value}</div>
-        </button>
-      ))}
-    </div>
-  </div>
-))}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {cat.options.map((opt, idx) => (
+                    <button
+                      key={idx}
+                      className="bg-white border border-gray-300 rounded-xl p-3
+                                 shadow-md active:scale-95 transition
+                                 font-bold text-lg touch-manipulation"
+                      onClick={() => addPoints(opt.value)}
+                    >
+                      <div>{opt.label}</div>
+                      <div className="text-sm text-gray-500">
+                        +{opt.value}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
 
 
       {finalRoundActive && !gameOver && (
