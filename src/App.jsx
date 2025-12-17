@@ -297,16 +297,29 @@ export default function FarkleCalculator() {
         <>
           <h2 className="text-xl font-bold">Current Turn Points: {turnPoints}</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {scoringOptions.map((opt, i) => (
-              <button key={i} className="p-2 bg-purple-300 rounded shadow" onClick={() => addPoints(opt.value)}>{opt.label}</button>
-            ))}
-          </div>
-          <div className="flex gap-2 mt-4">
-            <button className="bg-green-500 text-white p-2 rounded flex-1" onClick={endTurnWithScore}>Bank Points</button>
-            <button className="bg-red-500 text-white p-2 rounded flex-1" onClick={farkle}>Farkle</button>
-          </div>
-        </>
-      )}
+            {scoringCategories.map((cat, i) => (
+  <div key={i} className="space-y-2">
+    <h3 className="text-lg font-bold text-gray-700">
+      {cat.title}
+    </h3>
+
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      {cat.options.map((opt, idx) => (
+        <button
+          key={idx}
+          className="bg-white border border-gray-300 rounded-xl p-3
+                     shadow-md active:scale-95 transition
+                     font-bold text-lg touch-manipulation"
+          onClick={() => addPoints(opt.value)}
+        >
+          <div>{opt.label}</div>
+          <div className="text-sm text-gray-500">+{opt.value}</div>
+        </button>
+      ))}
+    </div>
+  </div>
+))}
+
 
       {finalRoundActive && !gameOver && (
         <button className="bg-yellow-600 text-white p-2 rounded w-full mt-4" onClick={endFinalRound}>End Final Round</button>
@@ -319,9 +332,23 @@ export default function FarkleCalculator() {
           <p>Current Stealer: {players[stealIndex]?.name}</p>
           <h3 className="text-lg font-bold">Add Points to Steal Pool</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {scoringOptions.map((opt, i) => (
-              <button key={i} className="p-2 bg-orange-300 rounded shadow" onClick={() => setStealPool(s => s + opt.value)}>{opt.label}</button>
-            ))}
+            {scoringCategories.map((cat, i) => (
+  <div key={i} className="space-y-2">
+    <h3 className="text-lg font-bold">{cat.title}</h3>
+    <div className="grid grid-cols-2 gap-2">
+      {cat.options.map((opt, idx) => (
+        <button
+          key={idx}
+          className="bg-orange-200 rounded-xl p-3 font-bold"
+          onClick={() => setStealPool(s => s + opt.value)}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  </div>
+))}
+
           </div>
           <div className="flex gap-2 mt-4">
             <button className="bg-green-600 text-white p-2 rounded flex-1" onClick={claimSteal}>Steal Successfully</button>
