@@ -1,29 +1,39 @@
 ﻿import React, { useState, useEffect } from "react";
 import Confetti from "react-confetti";
 
-const scoringOptions = [
+const scoringCategories = [
   {
     title: "Singles",
     options: [
-  { label: "Single 1 (+100)", value: 100 },
-  { label: "Single 5 (+50)", value: 50 },
-      ],
+      { label: "1 x (1)", value: 100 },
+      { label: "1 x (5)", value: 50 },
+    ],
   },
   {
-  { label: "Triple 1s (+300)", value: 300 },
-  { label: "Triple 2s (+200)", value: 200 },
-  { label: "Triple 3s (+300)", value: 300 },
-  { label: "Triple 4s (+400)", value: 400 },
-  { label: "Triple 5s (+500)", value: 500 },
-  { label: "Triple 6s (+600)", value: 600 },
-  { label: "Four of a Kind (+1000)", value: 1000 },
-  { label: "Five of a Kind (+2000)", value: 2000 },
-  { label: "Six of a Kind (+3000)", value: 3000 },
-  { label: "Straight 1-6 (+1500)", value: 1500 },
-  { label: "Three Pairs (+1500)", value: 1500 },
-  { label: "Four of a Kind + a Pair (+1500)", value: 1500 },
-  { label: "Two Triplets (+2500)", value: 2500 },
+    title: "Three of a Kind",
+    options: [
+      { label: "3 x 1s", value: 300 },
+      { label: "3 x 2s", value: 200 },
+      { label: "3 x 3s", value: 300 },
+      { label: "3 x 4s", value: 400 },
+      { label: "3 x 5s", value: 500 },
+      { label: "3 x 6s", value: 600 },
+    ],
+  },
+  {
+    title: "Combos",
+    options: [
+      { label: "Straight 1 -6", value: 1500 },
+      { label: "Three Pairs", value: 1500 },
+      { label: "4 + Pair", value: 1500 },
+      { label: "Two Triplets", value: 2500 },
+      { label: "4 of a Kind", value: 1000 },
+      { label: "5 of a Kind", value: 2000 },
+      { label: "6 of a Kind", value: 3000 },
+    ],
+  },
 ];
+
 
 export default function FarkleCalculator() {
   const [players, setPlayers] = useState([]);
