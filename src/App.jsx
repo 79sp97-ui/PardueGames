@@ -298,6 +298,23 @@ export default function FarkleCalculator() {
           <h2 className="text-xl font-bold">
             Current Turn Points: {turnPoints}
           </h2>
+{!isStealPhase && !gameOver && players.length > 0 && (
+  <div className="flex gap-2 mt-4">
+    <button
+      className="bg-green-600 text-white p-3 rounded flex-1 font-bold"
+      onClick={endTurnWithScore}
+    >
+      End Turn (Bank Points)
+    </button>
+
+    <button
+      className="bg-red-600 text-white p-3 rounded flex-1 font-bold"
+      onClick={farkle}
+    >
+      Farkle
+    </button>
+  </div>
+)}
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {scoringCategories.map((cat, i) => (
