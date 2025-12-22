@@ -40,7 +40,7 @@ export default function FarkleCalculator() {
   const [currentTurn, setCurrentTurn] = useState(0);
 
   const [turnPoints, setTurnPoints] = useState(0);
-  const [stealPool, setStealPool] = useState([]); // Track each contribution
+  const [stealPool, setStealPool] = useState([]); // Array of contributions
   const [stealIndex, setStealIndex] = useState(null);
   const [originalFarkler, setOriginalFarkler] = useState(null);
   const [isStealPhase, setIsStealPhase] = useState(false);
@@ -106,6 +106,7 @@ export default function FarkleCalculator() {
   const startFinalRound = scorer => {
     setFinalRoundActive(true);
     setFinalRoundStarter(scorer);
+
     const queue = players.map((_, idx) => idx).filter(idx => idx !== scorer);
     setFinalRoundQueue(queue);
     setCurrentTurn(queue[0]);
@@ -133,33 +134,41 @@ export default function FarkleCalculator() {
   };
 
   const endTurnWithScore = () => {
-    if (players.length === 0 || gameOver) return;
+    if (gameOver) return;
 
-    const isFirstTurn = players[currentTurn].score === 0;
-    if (!isStealPhase && !finalRoundActive && isFirstTurn && turnPoints < 500) return;
+    let pointsToAdd = isStealPhase
+      ? stealPool.reduce((sum, c) => sum + c.points, 0)
+      : finalRoundActive
+      ? finalRoundTurnPoints
+      : turnPoints;
 
+    // Update player's score
     setPlayers(prev => {
       const updated = [...prev];
-      const totalPoints = finalRoundActive
-        ? finalRoundTurnPoints
-        : isStealPhase
-        ? stealPool.reduce((sum, c) => sum + c.points, 0) + turnPoints
-        : turnPoints;
-      updated[currentTurn] = {
-        ...updated[currentTurn],
-        score: updated[currentTurn].score + totalPoints,
-      };
-      if (!finalRoundActive && !isStealPhase) checkFinalRound(updated);
+      updated[currentTurn].score += pointsToAdd;
+      if (!finalRoundActive) checkFinalRound(updated);
       return updated;
     });
 
     setTurnPoints(0);
-    setStealPool([]);
     setFinalRoundTurnPoints(0);
+    setStealPool([]);
     setIsStealPhase(false);
     setOriginalFarkler(null);
 
-    nextPlayer();
+    // Move to next player
+    if (finalRoundActive) {
+      if (finalRoundQueue.length === 0) {
+        finishFinalRound();
+      } else {
+        const [next, ...rest] = finalRoundQueue;
+        setCurrentTurn(next);
+        setFinalRoundQueue(rest);
+        setFinalRoundTurnPoints(0);
+      }
+    } else {
+      nextPlayer();
+    }
   };
 
   const farkle = () => {
@@ -225,10 +234,7 @@ export default function FarkleCalculator() {
 
     setPlayers(prev => {
       const updated = [...prev];
-      updated[stealIndex] = {
-        ...updated[stealIndex],
-        score: updated[stealIndex].score + total,
-      };
+      updated[stealIndex].score += total;
       if (!finalRoundActive) checkFinalRound(updated);
       return updated;
     });
