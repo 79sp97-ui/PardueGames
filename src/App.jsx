@@ -40,7 +40,7 @@ export default function FarkleCalculator() {
   const [currentTurn, setCurrentTurn] = useState(0);
 
   const [turnPoints, setTurnPoints] = useState(0);
-  const [stealPool, setStealPool] = useState(0);
+  const [stealPool, setStealPool] = useState([]); // Track each contribution
   const [stealIndex, setStealIndex] = useState(null);
   const [originalFarkler, setOriginalFarkler] = useState(null);
   const [isStealPhase, setIsStealPhase] = useState(false);
@@ -48,6 +48,7 @@ export default function FarkleCalculator() {
   const [finalRoundActive, setFinalRoundActive] = useState(false);
   const [finalRoundStarter, setFinalRoundStarter] = useState(null);
   const [finalRoundQueue, setFinalRoundQueue] = useState([]);
+  const [finalRoundTurnPoints, setFinalRoundTurnPoints] = useState(0);
 
   const [gameOver, setGameOver] = useState(false);
   const [winnerIndex, setWinnerIndex] = useState(null);
@@ -57,6 +58,9 @@ export default function FarkleCalculator() {
 
   const [showRules, setShowRules] = useState(false);
 
+  // ------------------------
+  // Window resize
+  // ------------------------
   useEffect(() => {
     const handleResize = () => {
       setWindowWidth(window.innerWidth);
@@ -68,7 +72,7 @@ export default function FarkleCalculator() {
   }, []);
 
   // ------------------------
-  // PLAYER ACTIONS
+  // Player actions
   // ------------------------
   const addPlayer = () => {
     if (!newPlayer.trim()) return;
@@ -77,8 +81,13 @@ export default function FarkleCalculator() {
   };
 
   const addPoints = val => {
-    if (isStealPhase) setStealPool(prev => prev + val);
-    else setTurnPoints(prev => prev + val);
+    if (isStealPhase) {
+      setStealPool(prev => [...prev, { player: players[currentTurn].name, points: val }]);
+    } else if (finalRoundActive) {
+      setFinalRoundTurnPoints(prev => prev + val);
+    } else {
+      setTurnPoints(prev => prev + val);
+    }
   };
 
   const nextPlayer = () => {
@@ -88,19 +97,19 @@ export default function FarkleCalculator() {
       const [next, ...rest] = finalRoundQueue;
       setCurrentTurn(next);
       setFinalRoundQueue(rest);
+      setFinalRoundTurnPoints(0);
     } else {
-      finishFinalRoundTurn();
+      finishFinalRound();
     }
   };
 
   const startFinalRound = scorer => {
     setFinalRoundActive(true);
     setFinalRoundStarter(scorer);
-    const queue = players
-      .map((_, idx) => idx)
-      .filter(idx => idx !== scorer);
+    const queue = players.map((_, idx) => idx).filter(idx => idx !== scorer);
     setFinalRoundQueue(queue);
     setCurrentTurn(queue[0]);
+    setFinalRoundTurnPoints(0);
   };
 
   const checkFinalRound = updatedPlayers => {
@@ -110,38 +119,43 @@ export default function FarkleCalculator() {
     }
   };
 
-  const finishFinalRoundTurn = () => {
-    if (!finalRoundActive) return;
+  const finishFinalRound = () => {
     const maxScore = Math.max(...players.map(p => p.score));
     const winner = players.findIndex(p => p.score === maxScore);
     setWinnerIndex(winner);
     setGameOver(true);
     setFinalRoundActive(false);
     setIsStealPhase(false);
-    setStealPool(0);
+    setStealPool([]);
     setOriginalFarkler(null);
     setFinalRoundQueue([]);
+    setFinalRoundTurnPoints(0);
   };
 
   const endTurnWithScore = () => {
     if (players.length === 0 || gameOver) return;
 
     const isFirstTurn = players[currentTurn].score === 0;
-    if (!isStealPhase && isFirstTurn && turnPoints < 500) return;
+    if (!isStealPhase && !finalRoundActive && isFirstTurn && turnPoints < 500) return;
 
     setPlayers(prev => {
       const updated = [...prev];
-      const totalPoints = isStealPhase ? stealPool + turnPoints : turnPoints;
+      const totalPoints = finalRoundActive
+        ? finalRoundTurnPoints
+        : isStealPhase
+        ? stealPool.reduce((sum, c) => sum + c.points, 0) + turnPoints
+        : turnPoints;
       updated[currentTurn] = {
         ...updated[currentTurn],
         score: updated[currentTurn].score + totalPoints,
       };
-      if (!isStealPhase) checkFinalRound(updated);
+      if (!finalRoundActive && !isStealPhase) checkFinalRound(updated);
       return updated;
     });
 
     setTurnPoints(0);
-    setStealPool(0);
+    setStealPool([]);
+    setFinalRoundTurnPoints(0);
     setIsStealPhase(false);
     setOriginalFarkler(null);
 
@@ -149,15 +163,16 @@ export default function FarkleCalculator() {
   };
 
   const farkle = () => {
-    if (players.length < 2 || turnPoints === 0 || gameOver) return;
+    if (players.length < 2 || (turnPoints === 0 && finalRoundTurnPoints === 0) || gameOver) return;
 
     if (finalRoundActive && finalRoundQueue.length === 0) {
       alert("Cannot Farkle on last turn in final round!");
       return;
     }
 
-    setStealPool(turnPoints);
+    setStealPool([{ player: players[currentTurn].name, points: turnPoints || finalRoundTurnPoints }]);
     setTurnPoints(0);
+    setFinalRoundTurnPoints(0);
     setOriginalFarkler(currentTurn);
 
     const next = (currentTurn + 1) % players.length;
@@ -167,8 +182,9 @@ export default function FarkleCalculator() {
 
   const declineFarkle = () => {
     if (stealIndex === null) return;
-    setStealPool(0);
+    setStealPool([]);
     setTurnPoints(0);
+    setFinalRoundTurnPoints(0);
     setCurrentTurn(stealIndex);
     setIsStealPhase(false);
     setStealIndex(null);
@@ -177,21 +193,23 @@ export default function FarkleCalculator() {
 
   const stealFarkle = () => {
     if (stealIndex === null) return;
-    setStealPool(prev => prev + turnPoints);
+    const total = turnPoints || finalRoundTurnPoints;
+    if (total > 0) setStealPool(prev => [...prev, { player: players[stealIndex].name, points: total }]);
     setTurnPoints(0);
+    setFinalRoundTurnPoints(0);
 
     const next = (stealIndex + 1) % players.length;
 
     if (finalRoundActive && finalRoundQueue.length === 0) {
-      finishFinalRoundTurn();
-      setStealPool(0);
+      finishFinalRound();
+      setStealPool([]);
       setIsStealPhase(false);
       setStealIndex(null);
       setOriginalFarkler(null);
       return;
     } else if (!finalRoundActive && next === originalFarkler) {
       setCurrentTurn(originalFarkler);
-      setStealPool(0);
+      setStealPool([]);
       setIsStealPhase(false);
       setStealIndex(null);
       setOriginalFarkler(null);
@@ -203,7 +221,7 @@ export default function FarkleCalculator() {
 
   const claimSteal = () => {
     if (stealIndex === null) return;
-    const total = stealPool + turnPoints;
+    const total = stealPool.reduce((sum, c) => sum + c.points, 0) + turnPoints + finalRoundTurnPoints;
 
     setPlayers(prev => {
       const updated = [...prev];
@@ -216,8 +234,9 @@ export default function FarkleCalculator() {
     });
 
     setCurrentTurn(stealIndex);
-    setStealPool(0);
+    setStealPool([]);
     setTurnPoints(0);
+    setFinalRoundTurnPoints(0);
     setStealIndex(null);
     setOriginalFarkler(null);
     setIsStealPhase(false);
@@ -233,8 +252,30 @@ export default function FarkleCalculator() {
     });
   };
 
+  const restartGame = () => {
+    setPlayers(prev => prev.map(p => ({ ...p, score: 0 })));
+    setCurrentTurn(0);
+    setTurnPoints(0);
+    setStealPool([]);
+    setStealIndex(null);
+    setIsStealPhase(false);
+    setFinalRoundActive(false);
+    setFinalRoundStarter(null);
+    setOriginalFarkler(null);
+    setFinalRoundQueue([]);
+    setFinalRoundTurnPoints(0);
+    setWinnerIndex(null);
+    setGameOver(false);
+  };
+
+  const newGame = () => {
+    setPlayers([]);
+    setNewPlayer("");
+    restartGame();
+  };
+
   // ------------------------
-  // RENDER
+  // Render
   // ------------------------
   return (
     <div className="p-3 max-w-md mx-auto space-y-4">
@@ -262,7 +303,7 @@ export default function FarkleCalculator() {
               </ul>
             </li>
             <li>The first player to reach 10,000 triggers the final round.</li>
-            <li>All other players get one turn to try to exceed that score.</li>
+            <li>All other players get exactly one turn in final round.</li>
             <li>If a Farkle occurs in the final round, the player before the first scorer cannot Farkle.</li>
             <li>The player with the highest score at the end wins the game.</li>
           </ul>
@@ -273,9 +314,7 @@ export default function FarkleCalculator() {
         <div className="text-yellow-700 font-bold">⚠️ Final Round Active!</div>
       )}
 
-      {gameOver && windowWidth > 0 && (
-        <Confetti width={windowWidth} height={windowHeight} />
-      )}
+      {gameOver && windowWidth > 0 && <Confetti width={windowWidth} height={windowHeight} />}
 
       <div className="flex gap-2">
         <input
@@ -284,9 +323,7 @@ export default function FarkleCalculator() {
           onChange={e => setNewPlayer(e.target.value)}
           placeholder="Player name"
         />
-        <button className="bg-blue-600 text-white p-2" onClick={addPlayer}>
-          Add
-        </button>
+        <button className="bg-blue-600 text-white p-2" onClick={addPlayer}>Add</button>
       </div>
 
       {players.map((p, i) => {
@@ -305,7 +342,21 @@ export default function FarkleCalculator() {
         );
       })}
 
-      <h2 className="font-bold">{isStealPhase ? `Steal Pool: ${stealPool}` : `Turn Points: ${turnPoints}`}</h2>
+      <h2 className="font-bold">
+        {isStealPhase
+          ? "Steal Pool"
+          : finalRoundActive
+          ? `Final Round Turn Points: ${finalRoundTurnPoints}`
+          : `Turn Points: ${turnPoints}`}
+      </h2>
+
+      {isStealPhase && stealPool.length > 0 && (
+        <ul className="list-disc pl-5">
+          {stealPool.map((c, idx) => (
+            <li key={idx}>{c.player} added {c.points} points</li>
+          ))}
+        </ul>
+      )}
 
       {scoringCategories.map(cat => (
         <div key={cat.title}>
@@ -323,11 +374,9 @@ export default function FarkleCalculator() {
       {!isStealPhase && !gameOver && (
         <div className="flex gap-2 mt-3">
           <button
-            disabled={players[currentTurn]?.score === 0 && turnPoints < 500}
+            disabled={players[currentTurn]?.score === 0 && !finalRoundActive && turnPoints < 500}
             className={`flex-1 p-3 rounded font-bold ${
-              players[currentTurn]?.score === 0 && turnPoints < 500
-                ? "bg-gray-400"
-                : "bg-green-600 text-white"
+              players[currentTurn]?.score === 0 && !finalRoundActive && turnPoints < 500 ? "bg-gray-400" : "bg-green-600 text-white"
             }`}
             onClick={endTurnWithScore}
           >
@@ -335,11 +384,9 @@ export default function FarkleCalculator() {
           </button>
 
           <button
-            disabled={players.length < 2 || turnPoints === 0}
+            disabled={players.length < 2 || (!turnPoints && !finalRoundTurnPoints)}
             className={`flex-1 p-3 rounded font-bold ${
-              players.length < 2 || turnPoints === 0
-                ? "bg-gray-400"
-                : "bg-red-600 text-white"
+              players.length < 2 || (!turnPoints && !finalRoundTurnPoints) ? "bg-gray-400" : "bg-red-600 text-white"
             }`}
             onClick={farkle}
           >
@@ -352,16 +399,17 @@ export default function FarkleCalculator() {
         <div className="bg-yellow-200 p-3 rounded space-y-2">
           <p>Stealer: {players[stealIndex]?.name}</p>
           <div className="flex gap-2 mt-2">
-            <button className="bg-green-600 text-white p-2 flex-1" onClick={claimSteal}>
-              Claim Steal
-            </button>
-            <button className="bg-red-600 text-white p-2 flex-1" onClick={stealFarkle}>
-              Farkle (Pass)
-            </button>
-            <button className="bg-blue-600 text-white p-2 flex-1" onClick={declineFarkle}>
-              Decline Steal
-            </button>
+            <button className="bg-green-600 text-white p-2 flex-1" onClick={claimSteal}>Claim Steal</button>
+            <button className="bg-red-600 text-white p-2 flex-1" onClick={stealFarkle}>Farkle (Pass)</button>
+            <button className="bg-blue-600 text-white p-2 flex-1" onClick={declineFarkle}>Decline Steal</button>
           </div>
+        </div>
+      )}
+
+      {gameOver && (
+        <div className="flex gap-2">
+          <button className="bg-green-600 text-white p-2 flex-1" onClick={restartGame}>Play Again</button>
+          <button className="bg-purple-600 text-white p-2 flex-1" onClick={newGame}>New Game</button>
         </div>
       )}
     </div>
