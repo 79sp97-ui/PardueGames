@@ -293,57 +293,60 @@ export default function FarkleCalculator() {
         ))}
       </div>
 
-            {!isStealPhase && !gameOver && (
-        <>
-          <h2 className="text-xl font-bold">
-            Current Turn Points: {turnPoints}
-          </h2>
-{!isStealPhase && !gameOver && players.length > 0 && (
-  <div className="flex gap-2 mt-4">
-    <button
-      className="bg-green-600 text-white p-3 rounded flex-1 font-bold"
-      onClick={endTurnWithScore}
-    >
-      End Turn (Bank Points)
-    </button>
+{!isStealPhase && !gameOver && (
+  <>
+    <h2 className="text-xl font-bold">
+      Current Turn Points: {turnPoints}
+    </h2>
 
-    <button
-      className="bg-red-600 text-white p-3 rounded flex-1 font-bold"
-      onClick={farkle}
-    >
-      Farkle
-    </button>
-  </div>
-)}
+    {/* SCORING GRID */}
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+      {scoringCategories.map((cat, i) => (
+        <div key={i} className="space-y-2">
+          <h3 className="text-lg font-bold text-gray-700">
+            {cat.title}
+          </h3>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {scoringCategories.map((cat, i) => (
-              <div key={i} className="space-y-2">
-                <h3 className="text-lg font-bold text-gray-700">
-                  {cat.title}
-                </h3>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {cat.options.map((opt, idx) => (
-                    <button
-                      key={idx}
-                      className="bg-white border border-gray-300 rounded-xl p-3
-                                 shadow-md active:scale-95 transition
-                                 font-bold text-lg touch-manipulation"
-                      onClick={() => addPoints(opt.value)}
-                    >
-                      <div>{opt.label}</div>
-                      <div className="text-sm text-gray-500">
-                        +{opt.value}
-                      </div>
-                    </button>
-                  ))}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {cat.options.map((opt, idx) => (
+              <button
+                key={idx}
+                className="bg-white border border-gray-300 rounded-xl p-3
+                           shadow-md active:scale-95 transition
+                           font-bold text-lg touch-manipulation"
+                onClick={() => addPoints(opt.value)}
+              >
+                <div>{opt.label}</div>
+                <div className="text-sm text-gray-500">
+                  +{opt.value}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
-        </>
-      )}
+        </div>
+      ))}
+    </div>
+
+    {/* END TURN + FARKLE BUTTONS */}
+    {players.length > 0 && (
+      <div className="flex gap-2 mt-4">
+        <button
+          className="bg-green-600 text-white p-3 rounded flex-1 font-bold"
+          onClick={endTurnWithScore}
+        >
+          End Turn (Bank Points)
+        </button>
+
+        <button
+          className="bg-red-600 text-white p-3 rounded flex-1 font-bold"
+          onClick={farkle}
+        >
+          Farkle
+        </button>
+      </div>
+    )}
+  </>
+)}
 
 
 
