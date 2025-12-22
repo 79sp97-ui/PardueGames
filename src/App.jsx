@@ -99,7 +99,7 @@ export default function FarkleCalculator() {
       setFinalRoundQueue(rest);
       setFinalRoundTurnPoints(0);
     } else {
-      finishFinalRound();
+      finishFinalRound(players);
     }
   };
 
@@ -123,9 +123,9 @@ export default function FarkleCalculator() {
     }
   };
 
-  const finishFinalRound = () => {
-    const maxScore = Math.max(...players.map(p => p.score));
-    const winner = players.findIndex(p => p.score === maxScore);
+  const finishFinalRound = (finalPlayers = players) => {
+    const maxScore = Math.max(...finalPlayers.map(p => p.score));
+    const winner = finalPlayers.findIndex(p => p.score === maxScore);
     setWinnerIndex(winner);
     setGameOver(true);
 
@@ -151,6 +151,10 @@ export default function FarkleCalculator() {
       const updated = [...prev];
       updated[currentTurn].score += pointsToAdd;
       if (!finalRoundActive) checkFinalRound(updated);
+
+      // If final round is ending, pass updated array
+      if (finalRoundActive && finalRoundQueue.length === 0) finishFinalRound(updated);
+
       return updated;
     });
 
@@ -162,13 +166,12 @@ export default function FarkleCalculator() {
     setOriginalFarkler(null);
 
     // Advance turn
-    if (finalRoundActive) {
-      if (finalRoundQueue.length === 0) finishFinalRound();
-      else {
-        setCurrentTurn(finalRoundQueue[0]);
-        setFinalRoundQueue(finalRoundQueue.slice(1));
-      }
-    } else nextPlayer();
+    if (finalRoundActive && finalRoundQueue.length > 0) {
+      setCurrentTurn(finalRoundQueue[0]);
+      setFinalRoundQueue(finalRoundQueue.slice(1));
+    } else if (!finalRoundActive) {
+      nextPlayer();
+    }
   };
 
   // ------------------------
@@ -209,7 +212,7 @@ export default function FarkleCalculator() {
     const next = (stealIndex + 1) % players.length;
 
     if (finalRoundActive && finalRoundQueue.length === 0) {
-      finishFinalRound();
+      finishFinalRound(players);
       setStealPool([]);
       setIsStealPhase(false);
       setStealIndex(null);
@@ -323,14 +326,13 @@ export default function FarkleCalculator() {
       )}
 
       {gameOver && windowWidth > 0 && (
-  <>
-    <Confetti width={windowWidth} height={windowHeight} />
-    <div className="text-center mt-4 text-2xl font-bold text-green-700">
-      🏆 Winner: {players[winnerIndex]?.name} 🏆
-    </div>
-  </>
-)}
-
+        <>
+          <Confetti width={windowWidth} height={windowHeight} />
+          <div className="text-center mt-4 text-2xl font-bold text-green-700">
+            🏆 Winner: {players[winnerIndex]?.name} 🏆
+          </div>
+        </>
+      )}
 
       <div className="flex gap-2">
         <input
