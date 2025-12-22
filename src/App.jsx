@@ -40,7 +40,6 @@ export default function FarkleCalculator() {
   const [currentTurn, setCurrentTurn] = useState(0);
 
   const [turnPoints, setTurnPoints] = useState(0);
-
   const [stealPool, setStealPool] = useState(0);
   const [stealIndex, setStealIndex] = useState(null);
   const [originalFarkler, setOriginalFarkler] = useState(null);
@@ -49,20 +48,24 @@ export default function FarkleCalculator() {
   const [gameOver, setGameOver] = useState(false);
   const [winnerIndex, setWinnerIndex] = useState(null);
 
-  // SSR-safe window size
   const [windowWidth, setWindowWidth] = useState(0);
   const [windowHeight, setWindowHeight] = useState(0);
 
+  const [showRules, setShowRules] = useState(false);
+
   useEffect(() => {
-    const resize = () => {
+    const handleResize = () => {
       setWindowWidth(window.innerWidth);
       setWindowHeight(window.innerHeight);
     };
-    resize();
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // ------------------------
+  // PLAYER ACTIONS
+  // ------------------------
   const addPlayer = () => {
     if (!newPlayer.trim()) return;
     setPlayers(p => [...p, { name: newPlayer.trim(), score: 0 }]);
@@ -74,9 +77,6 @@ export default function FarkleCalculator() {
   const nextPlayer = () =>
     setCurrentTurn(t => (t + 1) % players.length);
 
-  // ------------------------
-  // NORMAL TURN END
-  // ------------------------
   const endTurnWithScore = () => {
     if (players.length === 0 || gameOver) return;
 
@@ -96,9 +96,6 @@ export default function FarkleCalculator() {
     nextPlayer();
   };
 
-  // ------------------------
-  // START A FARKLE
-  // ------------------------
   const farkle = () => {
     if (players.length < 2 || turnPoints === 0 || gameOver) return;
 
@@ -110,28 +107,28 @@ export default function FarkleCalculator() {
     setIsStealPhase(true);
   };
 
-  // ------------------------
-  // DECLINE FARKLE
-  // ------------------------
   const declineFarkle = () => {
+    if (stealIndex === null) return;
+
     setStealPool(0);
     setTurnPoints(0);
 
     setCurrentTurn(stealIndex);
+    setIsStealPhase(false);
     setStealIndex(null);
     setOriginalFarkler(null);
-    setIsStealPhase(false);
   };
 
-  // ------------------------
-  // STEALER FARKLES
-  // ------------------------
   const stealFarkle = () => {
-    const next = (stealIndex + 1) % players.length;
+    if (stealIndex === null) return;
 
-    setStealPool(p => p + turnPoints);
+    // Add current stealer's points to the steal pool
+    setStealPool(prev => prev + turnPoints);
     setTurnPoints(0);
 
+    let next = (stealIndex + 1) % players.length;
+
+    // Steal ends if circle completes
     if (next === originalFarkler) {
       setStealPool(0);
       setCurrentTurn(originalFarkler);
@@ -144,10 +141,9 @@ export default function FarkleCalculator() {
     setStealIndex(next);
   };
 
-  // ------------------------
-  // CLAIM STEAL
-  // ------------------------
   const claimSteal = () => {
+    if (stealIndex === null) return;
+
     const total = stealPool + turnPoints;
 
     setPlayers(prev => {
@@ -167,9 +163,6 @@ export default function FarkleCalculator() {
     setIsStealPhase(false);
   };
 
-  // ------------------------
-  // REMOVE PLAYER SAFE
-  // ------------------------
   const removePlayer = i => {
     setPlayers(prev => {
       const updated = prev.filter((_, idx) => idx !== i);
@@ -178,9 +171,39 @@ export default function FarkleCalculator() {
     });
   };
 
+  // ------------------------
+  // RENDER
+  // ------------------------
   return (
     <div className="p-3 max-w-md mx-auto space-y-4">
       <h1 className="text-3xl font-bold">Farkle – House Rules</h1>
+
+      <button
+        className="bg-purple-600 text-white p-2 rounded"
+        onClick={() => setShowRules(prev => !prev)}
+      >
+        {showRules ? "Hide Rules" : "Show Rules"}
+      </button>
+
+      {showRules && (
+        <div className="bg-gray-100 p-3 rounded space-y-2 mt-2 text-sm">
+          <h2 className="font-bold text-lg">Game Rules</h2>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Players take turns selecting dice combinations to score points.</li>
+            <li>First turn must score at least 500 points to bank.</li>
+            <li>A Farkle occurs when no scoring options are available; turn points go to a steal pool.</li>
+            <li>Next player may:
+              <ul className="list-disc pl-5">
+                <li>Claim the steal pool (banks points and starts a new turn)</li>
+                <li>Farkle themselves (adds their points to the pool and passes it forward)</li>
+                <li>Decline (discard the pool and start their own turn)</li>
+              </ul>
+            </li>
+            <li>Steal chain continues around all players until claimed, declined, or returns to original farkler.</li>
+            <li>Normal turns continue with banking points and next player rotation.</li>
+          </ul>
+        </div>
+      )}
 
       {gameOver && windowWidth > 0 && (
         <Confetti width={windowWidth} height={windowHeight} />
@@ -201,7 +224,10 @@ export default function FarkleCalculator() {
       {players.map((p, i) => (
         <div key={i} className="p-2 bg-gray-100 rounded">
           <strong>{p.name}</strong> — {p.score}
-          <button className="ml-2 text-red-600" onClick={() => removePlayer(i)}>
+          <button
+            className="ml-2 text-red-600"
+            onClick={() => removePlayer(i)}
+          >
             ✕
           </button>
         </div>
@@ -231,7 +257,7 @@ export default function FarkleCalculator() {
       ))}
 
       {!isStealPhase && (
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-3">
           <button
             disabled={players[currentTurn]?.score === 0 && turnPoints < 500}
             className={`flex-1 p-3 rounded font-bold ${
@@ -262,15 +288,24 @@ export default function FarkleCalculator() {
         <div className="bg-yellow-200 p-3 rounded space-y-2">
           <p>Stealer: {players[stealIndex]?.name}</p>
 
-          <div className="flex gap-2">
-            <button className="bg-green-600 text-white p-2 flex-1" onClick={claimSteal}>
+          <div className="flex gap-2 mt-2">
+            <button
+              className="bg-green-600 text-white p-2 flex-1"
+              onClick={claimSteal}
+            >
               Claim Steal
             </button>
-            <button className="bg-red-600 text-white p-2 flex-1" onClick={stealFarkle}>
-              Farkle
+            <button
+              className="bg-red-600 text-white p-2 flex-1"
+              onClick={stealFarkle}
+            >
+              Farkle (Pass)
             </button>
-            <button className="bg-blue-600 text-white p-2 flex-1" onClick={declineFarkle}>
-              Decline
+            <button
+              className="bg-blue-600 text-white p-2 flex-1"
+              onClick={declineFarkle}
+            >
+              Decline Steal
             </button>
           </div>
         </div>
