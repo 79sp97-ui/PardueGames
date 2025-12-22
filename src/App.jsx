@@ -103,12 +103,16 @@ export default function FarkleCalculator() {
     }
   };
 
+  // ------------------------
+  // Final Round
+  // ------------------------
   const startFinalRound = scorer => {
     setFinalRoundActive(true);
     setFinalRoundStarter(scorer);
+
     const queue = players.map((_, idx) => idx).filter(idx => idx !== scorer);
-    setFinalRoundQueue(queue);
-    setCurrentTurn(queue[0]);
+    setCurrentTurn(queue[0]); // first player plays immediately
+    setFinalRoundQueue(queue.slice(1)); // remove first from queue
     setFinalRoundTurnPoints(0);
   };
 
@@ -124,11 +128,13 @@ export default function FarkleCalculator() {
     const winner = players.findIndex(p => p.score === maxScore);
     setWinnerIndex(winner);
     setGameOver(true);
+
     setFinalRoundActive(false);
-    setIsStealPhase(false);
-    setStealPool([]);
-    setOriginalFarkler(null);
     setFinalRoundQueue([]);
+    setFinalRoundStarter(null);
+    setStealPool([]);
+    setStealIndex(null);
+    setOriginalFarkler(null);
     setFinalRoundTurnPoints(0);
   };
 
@@ -148,23 +154,26 @@ export default function FarkleCalculator() {
       return updated;
     });
 
+    // Clear turn state
     setTurnPoints(0);
     setFinalRoundTurnPoints(0);
     setStealPool([]);
     setIsStealPhase(false);
     setOriginalFarkler(null);
 
+    // Advance turn
     if (finalRoundActive) {
       if (finalRoundQueue.length === 0) finishFinalRound();
       else {
-        const [next, ...rest] = finalRoundQueue;
-        setCurrentTurn(next);
-        setFinalRoundQueue(rest);
-        setFinalRoundTurnPoints(0);
+        setCurrentTurn(finalRoundQueue[0]);
+        setFinalRoundQueue(finalRoundQueue.slice(1));
       }
     } else nextPlayer();
   };
 
+  // ------------------------
+  // Farkle / Steal Mechanics
+  // ------------------------
   const farkle = () => {
     if (players.length < 2 || (!turnPoints && !finalRoundTurnPoints) || gameOver) return;
 
@@ -240,6 +249,9 @@ export default function FarkleCalculator() {
     nextPlayer();
   };
 
+  // ------------------------
+  // Player management
+  // ------------------------
   const removePlayer = i => {
     setPlayers(prev => {
       const updated = prev.filter((_, idx) => idx !== i);
