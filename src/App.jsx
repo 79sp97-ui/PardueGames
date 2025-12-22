@@ -247,7 +247,13 @@ export default function FarkleCalculator() {
               <button
                 key={o.label}
                 className="border p-2 rounded"
-                onClick={() => addPoints(o.value)}
+                onClick={() => {
+                  if (isStealPhase) {
+                    setStealPool(prev => prev + o.value);
+                  } else {
+                    addPoints(o.value);
+                  }
+                }}
               >
                 {o.label} (+{o.value})
               </button>
