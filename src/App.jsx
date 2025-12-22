@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Confetti from "react-confetti";
 
 const scoringCategories = [
@@ -23,7 +23,7 @@ const scoringCategories = [
   {
     title: "Combos",
     options: [
-      { label: "Straight 1 -6", value: 1500 },
+      { label: "Straight 1 - 6", value: 1500 },
       { label: "Three Pairs", value: 1500 },
       { label: "4 + Pair", value: 1500 },
       { label: "Two Triplets", value: 2500 },
@@ -34,355 +34,217 @@ const scoringCategories = [
   },
 ];
 
-
 export default function FarkleCalculator() {
   const [players, setPlayers] = useState([]);
   const [newPlayer, setNewPlayer] = useState("");
   const [currentTurn, setCurrentTurn] = useState(0);
   const [turnPoints, setTurnPoints] = useState(0);
+
   const [stealPool, setStealPool] = useState(0);
   const [stealIndex, setStealIndex] = useState(null);
   const [isStealPhase, setIsStealPhase] = useState(false);
+  const [originalFarkler, setOriginalFarkler] = useState(null);
 
   const [finalRoundActive, setFinalRoundActive] = useState(false);
   const [finalRoundStarter, setFinalRoundStarter] = useState(null);
+
   const [winnerIndex, setWinnerIndex] = useState(null);
-  const [originalFarkler, setOriginalFarkler] = useState(null);
   const [gameOver, setGameOver] = useState(false);
 
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  const [windowHeight, setWindowHeight] = useState(window.innerHeight);
+  // SSR-safe window size
+  const [windowWidth, setWindowWidth] = useState(0);
+  const [windowHeight, setWindowHeight] = useState(0);
 
   useEffect(() => {
     const handleResize = () => {
       setWindowWidth(window.innerWidth);
       setWindowHeight(window.innerHeight);
     };
+    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const addPlayer = () => {
-    const name = newPlayer.trim();
-    if (!name) return;
-    setPlayers(prev => [...prev, { name, score: 0 }]);
+    if (!newPlayer.trim()) return;
+    setPlayers(p => [...p, { name: newPlayer.trim(), score: 0 }]);
     setNewPlayer("");
   };
 
-  const addPoints = value => setTurnPoints(tp => tp + value);
+  const addPoints = value => setTurnPoints(p => p + value);
 
-  const nextPlayer = () => {
-    if (players.length === 0) return;
-    setCurrentTurn(ct => (ct + 1) % players.length);
-  };
-
-  const checkForFinalRound = (updatedPlayers, justScoredIndex) => {
-    const score = updatedPlayers[justScoredIndex]?.score ?? 0;
-    if (!finalRoundActive && score >= 10000) {
-      setFinalRoundActive(true);
-      setFinalRoundStarter(justScoredIndex);
-      setCurrentTurn((justScoredIndex + 1) % updatedPlayers.length);
-    }
-  };
-
-  const finishFinalRoundTurn = () => {
-    if (!finalRoundActive) return;
-
-    if ((isStealPhase && stealIndex === finalRoundStarter) || (!isStealPhase && currentTurn === finalRoundStarter)) {
-      let highestScore = -1;
-      let winner = null;
-      players.forEach((p, i) => {
-        if (p.score > highestScore) {
-          highestScore = p.score;
-          winner = i;
-        }
-      });
-      setWinnerIndex(winner);
-      setGameOver(true);
-      setFinalRoundActive(false);
-      setIsStealPhase(false);
-      setStealPool(0);
-      setOriginalFarkler(null);
-    }
-  };
+  const nextPlayer = () =>
+    setCurrentTurn(t => (t + 1) % players.length);
 
   const endTurnWithScore = () => {
-    if (players.length === 0 || gameOver) return;
+    if (gameOver || players.length === 0) return;
 
-    const canBank = players[currentTurn].score > 0 || turnPoints >= 500;
-    if (!canBank) {
-      alert("You must score at least 500 points to bank on your first turn!");
-      return;
-    }
+    const isFirstTurn = players[currentTurn].score === 0;
+    if (isFirstTurn && turnPoints < 500) return;
+
+    const newScore = players[currentTurn].score + turnPoints;
+    const triggersFinal = !finalRoundActive && newScore >= 10000;
 
     setPlayers(prev => {
       const updated = [...prev];
-      updated[currentTurn] = { ...updated[currentTurn], score: updated[currentTurn].score + turnPoints };
-      checkForFinalRound(updated, currentTurn);
+      updated[currentTurn] = { ...updated[currentTurn], score: newScore };
       return updated;
     });
 
     setTurnPoints(0);
 
-    if (finalRoundActive) {
-      nextPlayer();
-      finishFinalRoundTurn();
+    if (triggersFinal) {
+      setFinalRoundActive(true);
+      setFinalRoundStarter(currentTurn);
+      setCurrentTurn((currentTurn + 1) % players.length);
     } else {
       nextPlayer();
     }
   };
 
   const farkle = () => {
-    if (players.length < 2 || gameOver) return;
+    if (gameOver || players.length < 2) return;
+    if (turnPoints === 0) return;
+
+    if (!isStealPhase) setOriginalFarkler(currentTurn);
+
     setStealPool(turnPoints);
     setTurnPoints(0);
-
-    let next = (currentTurn + 1) % players.length;
-
-    if (!finalRoundActive) {
-      if (next === originalFarkler) {
-        setIsStealPhase(false);
-        setStealPool(0);
-        setCurrentTurn(originalFarkler);
-        setOriginalFarkler(null);
-        return;
-      }
-    } else {
-      if (next === finalRoundStarter) {
-        setIsStealPhase(false);
-        setStealPool(0);
-        finishFinalRoundTurn();
-        return;
-      }
-    }
-
-    setOriginalFarkler(currentTurn);
     setIsStealPhase(true);
-    setStealIndex(next);
+    setStealIndex((currentTurn + 1) % players.length);
   };
 
   const stealFarkle = () => {
-    if (players.length < 2 || stealIndex === null || gameOver) return;
+    const next = (stealIndex + 1) % players.length;
 
-    let next = (stealIndex + 1) % players.length;
-
-    if (!finalRoundActive) {
-      if (next === originalFarkler) {
-        setIsStealPhase(false);
-        setStealPool(0);
-        setCurrentTurn(originalFarkler);
-        setOriginalFarkler(null);
-        return;
-      }
-    } else {
-      if (next === finalRoundStarter || stealIndex === players.length - 1) {
-        setIsStealPhase(false);
-        setStealPool(0);
-        finishFinalRoundTurn();
-        return;
-      }
+    if (next === originalFarkler) {
+      setIsStealPhase(false);
+      setStealPool(0);
+      setCurrentTurn(originalFarkler);
+      setOriginalFarkler(null);
+      return;
     }
 
     setStealIndex(next);
   };
 
   const claimSteal = () => {
-    if (stealIndex === null || players.length === 0 || gameOver) return;
     setPlayers(prev => {
       const updated = [...prev];
-      updated[stealIndex] = { ...updated[stealIndex], score: updated[stealIndex].score + stealPool };
-      checkForFinalRound(updated, stealIndex);
+      updated[stealIndex].score += stealPool;
       return updated;
     });
+
     setCurrentTurn(stealIndex);
-    setIsStealPhase(false);
     setStealPool(0);
-    setOriginalFarkler(null);
-
-    if (finalRoundActive) finishFinalRoundTurn();
-  };
-
-  const takeRegularTurnInstead = () => {
-    setTurnPoints(0);
     setIsStealPhase(false);
-    if (stealIndex !== null) setCurrentTurn(stealIndex);
-    setStealPool(0);
-    setStealIndex(null);
     setOriginalFarkler(null);
-
-    if (finalRoundActive) finishFinalRoundTurn();
   };
 
-  const endFinalRound = () => {
-    if (!finalRoundActive) return;
-    finishFinalRoundTurn();
+  const removePlayer = index => {
+    setPlayers(prev => {
+      const updated = prev.filter((_, i) => i !== index);
+      if (currentTurn >= updated.length) setCurrentTurn(0);
+      return updated;
+    });
   };
-
-  const restartGame = () => {
-    setPlayers(prev => prev.map(p => ({ ...p, score: 0 })));
-    setCurrentTurn(0);
-    setTurnPoints(0);
-    setStealPool(0);
-    setStealIndex(null);
-    setIsStealPhase(false);
-    setFinalRoundActive(false);
-    setFinalRoundStarter(null);
-    setOriginalFarkler(null);
-    setWinnerIndex(null);
-    setGameOver(false);
-  };
-
-  const newGame = () => {
-    setPlayers([]);
-    setNewPlayer("");
-    setCurrentTurn(0);
-    setTurnPoints(0);
-    setStealPool(0);
-    setStealIndex(null);
-    setIsStealPhase(false);
-    setFinalRoundActive(false);
-    setFinalRoundStarter(null);
-    setOriginalFarkler(null);
-    setWinnerIndex(null);
-    setGameOver(false);
-  };
-
-  const renderedPlayers = players.map((p, i) => {
-    let bg = "bg-gray-100";
-    if (gameOver) {
-      bg = i === winnerIndex ? "bg-green-300" : "bg-gray-300 opacity-50";
-    } else if (finalRoundActive) {
-      bg = i === currentTurn ? "bg-green-200" : i !== finalRoundStarter ? "bg-yellow-200" : "bg-gray-100";
-    } else if (i === currentTurn) {
-      bg = "bg-green-200";
-    }
-    return { ...p, bg };
-  });
 
   return (
-    <div className="p-2 max-w-md mx-auto space-y-4">
-      <h1 className="text-3xl font-bold">Farkle House Rules Edition</h1>
+    <div className="p-3 max-w-md mx-auto space-y-4">
+      <h1 className="text-3xl font-bold">Farkle House Rules</h1>
 
-      <button className="bg-gray-700 text-white p-2 rounded w-full" onClick={restartGame}>Reset Game</button>
+      {gameOver && windowWidth > 0 && (
+        <Confetti width={windowWidth} height={windowHeight} />
+      )}
 
-      {gameOver && winnerIndex !== null && players[winnerIndex] && (
+      <div className="flex gap-2">
+        <input
+          className="border p-2 flex-1"
+          value={newPlayer}
+          onChange={e => setNewPlayer(e.target.value)}
+          placeholder="Player name"
+        />
+        <button className="bg-blue-500 text-white p-2" onClick={addPlayer}>
+          Add
+        </button>
+      </div>
+
+      {players.map((p, i) => (
+        <div key={i} className="p-2 bg-gray-100 rounded">
+          <strong>{p.name}</strong> — {p.score}
+          <button
+            className="ml-2 text-red-600"
+            onClick={() => removePlayer(i)}
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+
+      {!isStealPhase && (
         <>
-          <Confetti width={windowWidth} height={windowHeight} />
-          <div className="p-4 bg-green-300 rounded text-center">
-            <h2 className="text-2xl font-bold">Winner: {players[winnerIndex].name}!</h2>
-            <div className="flex gap-2 justify-center mt-3">
-              <button className="bg-blue-600 text-white p-2 rounded" onClick={restartGame}>Restart</button>
-              <button className="bg-purple-600 text-white p-2 rounded" onClick={newGame}>New Game</button>
+          <h2 className="font-bold">Turn Points: {turnPoints}</h2>
+
+          {scoringCategories.map(cat => (
+            <div key={cat.title}>
+              <h3 className="font-bold">{cat.title}</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {cat.options.map(o => (
+                  <button
+                    key={o.label}
+                    className="border p-2 rounded"
+                    onClick={() => addPoints(o.value)}
+                  >
+                    {o.label} (+{o.value})
+                  </button>
+                ))}
+              </div>
             </div>
+          ))}
+
+          <div className="flex gap-2 mt-3">
+            <button
+              disabled={
+                players[currentTurn]?.score === 0 && turnPoints < 500
+              }
+              className={`flex-1 p-3 font-bold rounded ${
+                players[currentTurn]?.score === 0 && turnPoints < 500
+                  ? "bg-gray-400"
+                  : "bg-green-600 text-white"
+              }`}
+              onClick={endTurnWithScore}
+            >
+              End Turn
+            </button>
+
+            <button
+              disabled={players.length < 2 || turnPoints === 0}
+              className={`flex-1 p-3 font-bold rounded ${
+                players.length < 2 || turnPoints === 0
+                  ? "bg-gray-400"
+                  : "bg-red-600 text-white"
+              }`}
+              onClick={farkle}
+            >
+              Farkle
+            </button>
           </div>
         </>
       )}
 
-      <div className="flex gap-2">
-        <input className="border rounded p-2 flex-1" value={newPlayer} placeholder="Player name" onChange={e => setNewPlayer(e.target.value)} />
-        <button className="bg-blue-500 text-white p-2 rounded" onClick={addPlayer}>Add Player</button>
-      </div>
+      {isStealPhase && (
+        <div className="bg-yellow-200 p-3 rounded">
+          <h2 className="font-bold">Steal Phase</h2>
+          <p>Pool: {stealPool}</p>
+          <p>Stealer: {players[stealIndex]?.name}</p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {renderedPlayers.map((p, i) => (
-          <div key={i} className={`p-3 rounded shadow ${p.bg}`}>
-            <div className="font-bold">{p.name}</div>
-            <div>Score: {p.score}</div>
-            <button className="bg-red-500 text-white text-sm p-1 mt-2 rounded" onClick={() => setPlayers(players.filter((_, idx) => idx !== i))}>Remove Player</button>
-          </div>
-        ))}
-      </div>
-
-{!isStealPhase && !gameOver && (
-  <>
-    <h2 className="text-xl font-bold">
-      Current Turn Points: {turnPoints}
-    </h2>
-
-    {/* SCORING GRID */}
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-      {scoringCategories.map((cat, i) => (
-        <div key={i} className="space-y-2">
-          <h3 className="text-lg font-bold text-gray-700">
-            {cat.title}
-          </h3>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {cat.options.map((opt, idx) => (
-              <button
-                key={idx}
-                className="bg-white border border-gray-300 rounded-xl p-3
-                           shadow-md active:scale-95 transition
-                           font-bold text-lg touch-manipulation"
-                onClick={() => addPoints(opt.value)}
-              >
-                <div>{opt.label}</div>
-                <div className="text-sm text-gray-500">
-                  +{opt.value}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-
-    {/* END TURN + FARKLE BUTTONS */}
-    {players.length > 0 && (
-      <div className="flex gap-2 mt-4">
-        <button
-          className="bg-green-600 text-white p-3 rounded flex-1 font-bold"
-          onClick={endTurnWithScore}
-        >
-          End Turn (Bank Points)
-        </button>
-
-        <button
-          className="bg-red-600 text-white p-3 rounded flex-1 font-bold"
-          onClick={farkle}
-        >
-          Farkle
-        </button>
-      </div>
-    )}
-  </>
-)}
-
-
-
-      {finalRoundActive && !gameOver && (
-        <button className="bg-yellow-600 text-white p-2 rounded w-full mt-4" onClick={endFinalRound}>End Final Round</button>
-      )}
-
-      {isStealPhase && !gameOver && players.length > 0 && stealIndex !== null && (
-        <div className="p-4 bg-yellow-200 rounded space-y-4">
-          <h2 className="text-xl font-bold">Steal Phase</h2>
-          <p>Steal Pool: {stealPool}</p>
-          <p>Current Stealer: {players[stealIndex]?.name}</p>
-          <h3 className="text-lg font-bold">Add Points to Steal Pool</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {scoringCategories.map((cat, i) => (
-  <div key={i} className="space-y-2">
-    <h3 className="text-lg font-bold">{cat.title}</h3>
-    <div className="grid grid-cols-2 gap-2">
-      {cat.options.map((opt, idx) => (
-        <button
-          key={idx}
-          className="bg-orange-200 rounded-xl p-3 font-bold"
-          onClick={() => setStealPool(s => s + opt.value)}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  </div>
-))}
-
-          </div>
-          <div className="flex gap-2 mt-4">
-            <button className="bg-green-600 text-white p-2 rounded flex-1" onClick={claimSteal}>Steal Successfully</button>
-            <button className="bg-red-600 text-white p-2 rounded flex-1" onClick={stealFarkle}>Farkle (Pass Steal)</button>
-            <button className="bg-blue-600 text-white p-2 rounded flex-1" onClick={takeRegularTurnInstead}>Take Regular Turn Instead</button>
+          <div className="flex gap-2 mt-2">
+            <button className="bg-green-600 text-white p-2" onClick={claimSteal}>
+              Claim
+            </button>
+            <button className="bg-red-600 text-white p-2" onClick={stealFarkle}>
+              Pass
+            </button>
           </div>
         </div>
       )}
