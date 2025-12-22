@@ -322,7 +322,15 @@ export default function FarkleCalculator() {
         <div className="text-yellow-700 font-bold">⚠️ Final Round Active!</div>
       )}
 
-      {gameOver && windowWidth > 0 && <Confetti width={windowWidth} height={windowHeight} />}
+      {gameOver && windowWidth > 0 && (
+  <>
+    <Confetti width={windowWidth} height={windowHeight} />
+    <div className="text-center mt-4 text-2xl font-bold text-green-700">
+      🏆 Winner: {players[winnerIndex]?.name} 🏆
+    </div>
+  </>
+)}
+
 
       <div className="flex gap-2">
         <input
