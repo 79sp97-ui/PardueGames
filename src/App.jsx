@@ -265,7 +265,7 @@ export default function FarkleCalculator() {
   ================================ */
   return (
     <div className="p-3 max-w-md mx-auto space-y-4">
-      <h1 className="text-3xl font-bold">Farkle</h1>
+      <h1 className="text-3xl font-bold">House Rules Farkle</h1>
 
       {/* Game over confetti */}
       {gameOver && (
