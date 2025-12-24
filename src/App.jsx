@@ -55,12 +55,7 @@ function finalRoundReducer(state, action) {
         (_, i) => i
       ).filter(i => i !== action.starter);
 
-      return {
-        active: true,
-        starter: action.starter,
-        queue,
-        turnPoints: 0,
-      };
+      return { active: true, starter: action.starter, queue, turnPoints: 0 };
     }
 
     case "ADD_POINTS":
@@ -85,13 +80,8 @@ export default function FarkleCalculator() {
   const [newPlayer, setNewPlayer] = useState("");
   const [currentTurn, setCurrentTurn] = useState(0);
   const [previousPlayerIndex, setPreviousPlayerIndex] = useState(null);
-
   const [turnPoints, setTurnPoints] = useState(0);
   const [history, setHistory] = useState([]);
-
-  const [isStealPhase, setIsStealPhase] = useState(false);
-  const [stealPool, setStealPool] = useState([]);
-  const [stealIndex, setStealIndex] = useState(null);
 
   const [finalRound, dispatchFinalRound] = useReducer(
     finalRoundReducer,
@@ -104,9 +94,6 @@ export default function FarkleCalculator() {
   const [windowWidth, setWindowWidth] = useState(0);
   const [windowHeight, setWindowHeight] = useState(0);
 
-  /* ===============================
-     WINDOW
-  ================================ */
   useEffect(() => {
     const resize = () => {
       setWindowWidth(window.innerWidth);
@@ -117,9 +104,6 @@ export default function FarkleCalculator() {
     return () => window.removeEventListener("resize", resize);
   }, []);
 
-  /* ===============================
-     UNDO SNAPSHOT
-  ================================ */
   const snapshot = () => {
     setHistory(h => [
       ...h,
@@ -129,9 +113,6 @@ export default function FarkleCalculator() {
         previousPlayerIndex,
         turnPoints,
         finalRound,
-        isStealPhase,
-        stealPool,
-        stealIndex,
       },
     ]);
   };
@@ -145,15 +126,9 @@ export default function FarkleCalculator() {
     setCurrentTurn(prev.currentTurn);
     setPreviousPlayerIndex(prev.previousPlayerIndex);
     setTurnPoints(prev.turnPoints);
-    setIsStealPhase(prev.isStealPhase);
-    setStealPool(prev.stealPool);
-    setStealIndex(prev.stealIndex);
     dispatchFinalRound({ type: "RESET" });
   };
 
-  /* ===============================
-     HELPERS
-  ================================ */
   const setLastAction = (index, text) => {
     setPlayers(p => {
       const updated = [...p];
@@ -162,9 +137,6 @@ export default function FarkleCalculator() {
     });
   };
 
-  /* ===============================
-     PLAYERS
-  ================================ */
   const addPlayer = () => {
     if (!newPlayer.trim()) return;
     setPlayers(p => [
@@ -174,9 +146,6 @@ export default function FarkleCalculator() {
     setNewPlayer("");
   };
 
-  /* ===============================
-     SCORING
-  ================================ */
   const addPoints = (value, label) => {
     if (gameOver) return;
     snapshot();
@@ -245,19 +214,13 @@ export default function FarkleCalculator() {
       ? finalRound.turnPoints
       : turnPoints;
 
-    setLastAction(currentTurn, `Farkled – ${points}`);
+    setLastAction(currentTurn, `Farkled (${points})`);
     setPreviousPlayerIndex(currentTurn);
-
-    setStealPool([{ player: players[currentTurn].name, points }]);
     setTurnPoints(0);
-    dispatchFinalRound({ type: "ADD_POINTS", value: -finalRound.turnPoints });
-    setStealIndex((currentTurn + 1) % players.length);
-    setIsStealPhase(true);
+    dispatchFinalRound({ type: "RESET" });
+    setCurrentTurn((currentTurn + 1) % players.length);
   };
 
-  /* ===============================
-     RENDER
-  ================================ */
   return (
     <div className="p-3 max-w-md mx-auto space-y-4">
       <h1 className="text-3xl font-bold">Farkle</h1>
@@ -290,44 +253,18 @@ export default function FarkleCalculator() {
         </button>
       </div>
 
-      {players.map((p, i) => {
-        let bg = "bg-gray-100";
-        let ring = "";
-        let pulse = "";
-
-        if (i === currentTurn) {
-          bg = "bg-green-300";
-          ring = "ring-4 ring-green-700";
-        }
-
-        if (i === previousPlayerIndex) {
-          ring = "ring-4 ring-blue-600";
-          pulse = "animate-pulse";
-        }
-
-        if (finalRound.active && i === finalRound.starter) {
-          ring = "ring-4 ring-yellow-500";
-        }
-
-        if (gameOver && i === winnerIndex) {
-          bg = "bg-emerald-400";
-          ring = "ring-4 ring-emerald-700";
-        }
-
-        return (
-          <div
-            key={i}
-            className={`p-2 rounded transition-all ${bg} ${ring} ${pulse}`}
-          >
-            <strong>{p.name}</strong> — {p.score}
-            {i === previousPlayerIndex && (
-              <span className="ml-2 text-xs bg-blue-600 text-white px-2 rounded">
-                Last Action
-              </span>
-            )}
-          </div>
-        );
-      })}
+      {players.map((p, i) => (
+        <div
+          key={i}
+          className={`p-2 rounded ${
+            i === currentTurn ? "bg-green-300 ring-4 ring-green-700" : "bg-gray-100"
+          } ${
+            i === previousPlayerIndex ? "ring-4 ring-blue-600 animate-pulse" : ""
+          }`}
+        >
+          <strong>{p.name}</strong> — {p.score}
+        </div>
+      ))}
 
       <h2 className="font-bold">
         {finalRound.active
@@ -353,6 +290,14 @@ export default function FarkleCalculator() {
       ))}
 
       <div className="flex gap-2">
+        <button
+          className="bg-red-600 text-white p-3 flex-1"
+          disabled={!turnPoints && !finalRound.turnPoints}
+          onClick={farkle}
+        >
+          Farkle
+        </button>
+
         <button
           className="bg-green-600 text-white p-3 flex-1"
           onClick={endTurn}
