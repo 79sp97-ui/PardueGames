@@ -50,11 +50,9 @@ const finalRoundInitial = {
 function finalRoundReducer(state, action) {
   switch (action.type) {
     case "START": {
-      const queue = Array.from(
-        { length: action.playerCount },
-        (_, i) => i
-      ).filter(i => i !== action.starter);
-
+      const queue = Array.from({ length: action.playerCount }, (_, i) => i).filter(
+        i => i !== action.starter
+      );
       return {
         active: true,
         starter: action.starter,
@@ -62,16 +60,12 @@ function finalRoundReducer(state, action) {
         turnPoints: 0,
       };
     }
-
     case "ADD_POINTS":
       return { ...state, turnPoints: state.turnPoints + action.value };
-
     case "NEXT_PLAYER":
       return { ...state, queue: state.queue.slice(1), turnPoints: 0 };
-
     case "RESET":
       return finalRoundInitial;
-
     default:
       return state;
   }
@@ -92,6 +86,7 @@ export default function FarkleCalculator() {
   const [isStealPhase, setIsStealPhase] = useState(false);
   const [stealPool, setStealPool] = useState([]);
   const [stealIndex, setStealIndex] = useState(null);
+  const [lastContributorIndex, setLastContributorIndex] = useState(null);
 
   const [finalRound, dispatchFinalRound] = useReducer(
     finalRoundReducer,
@@ -132,6 +127,7 @@ export default function FarkleCalculator() {
         isStealPhase,
         stealPool,
         stealIndex,
+        lastContributorIndex,
       },
     ]);
   };
@@ -148,6 +144,7 @@ export default function FarkleCalculator() {
     setIsStealPhase(prev.isStealPhase);
     setStealPool(prev.stealPool);
     setStealIndex(prev.stealIndex);
+    setLastContributorIndex(prev.lastContributorIndex);
     dispatchFinalRound({ type: "RESET" });
   };
 
@@ -188,6 +185,7 @@ export default function FarkleCalculator() {
     }
 
     setLastAction(currentTurn, `+${value} (${label})`);
+    if (isStealPhase) setLastContributorIndex(currentTurn);
   };
 
   /* ===============================
@@ -197,9 +195,7 @@ export default function FarkleCalculator() {
     if (gameOver) return;
     snapshot();
 
-    const points = finalRound.active
-      ? finalRound.turnPoints
-      : turnPoints;
+    const points = finalRound.active ? finalRound.turnPoints : turnPoints;
 
     setPlayers(prev => {
       const updated = [...prev];
@@ -246,9 +242,7 @@ export default function FarkleCalculator() {
     if (!turnPoints && !finalRound.turnPoints) return;
     snapshot();
 
-    const points = finalRound.active
-      ? finalRound.turnPoints
-      : turnPoints;
+    const points = finalRound.active ? finalRound.turnPoints : turnPoints;
 
     setLastAction(currentTurn, `Farkled – ${points}`);
     setPreviousPlayerIndex(currentTurn);
@@ -258,6 +252,44 @@ export default function FarkleCalculator() {
     dispatchFinalRound({ type: "ADD_POINTS", value: -finalRound.turnPoints });
     setStealIndex((currentTurn + 1) % players.length);
     setIsStealPhase(true);
+    setLastContributorIndex(currentTurn);
+  };
+
+  const claimSteal = () => {
+    const total =
+      stealPool.reduce((sum, c) => sum + c.points, 0) +
+      turnPoints +
+      finalRound.turnPoints;
+    setPlayers(prev => {
+      const updated = [...prev];
+      updated[stealIndex].score += total;
+      setLastAction(stealIndex, `Claimed steal ${total}`);
+      return updated;
+    });
+    setCurrentTurn(stealIndex);
+    setStealPool([]);
+    setTurnPoints(0);
+    setStealIndex(null);
+    setIsStealPhase(false);
+  };
+
+  const stealFarkle = () => {
+    const next = (stealIndex + 1) % players.length;
+    if (next === previousPlayerIndex) {
+      setCurrentTurn(previousPlayerIndex);
+      setStealPool([]);
+      setStealIndex(null);
+      setIsStealPhase(false);
+      return;
+    }
+    setStealIndex(next);
+  };
+
+  const declineFarkle = () => {
+    setCurrentTurn(stealIndex);
+    setStealPool([]);
+    setStealIndex(null);
+    setIsStealPhase(false);
   };
 
   /* ===============================
@@ -265,9 +297,8 @@ export default function FarkleCalculator() {
   ================================ */
   return (
     <div className="p-3 max-w-md mx-auto space-y-4">
-      <h1 className="text-3xl font-bold">House Rules Farkle</h1>
+      <h1 className="text-3xl font-bold">Farkle</h1>
 
-      {/* Game over confetti */}
       {gameOver && (
         <>
           <Confetti width={windowWidth} height={windowHeight} />
@@ -277,7 +308,6 @@ export default function FarkleCalculator() {
         </>
       )}
 
-      {/* Previous player's last action */}
       {previousPlayerIndex !== null && players[previousPlayerIndex] && (
         <div className="bg-blue-100 border-l-4 border-blue-600 p-2 rounded text-sm">
           <strong>{players[previousPlayerIndex].name}</strong>{" "}
@@ -285,7 +315,6 @@ export default function FarkleCalculator() {
         </div>
       )}
 
-      {/* Add new player */}
       <div className="flex gap-2">
         <input
           className="border p-2 flex-1"
@@ -298,7 +327,6 @@ export default function FarkleCalculator() {
         </button>
       </div>
 
-      {/* Players */}
       {players.map((p, i) => {
         let bg = "bg-gray-100";
         let ring = "";
@@ -338,7 +366,6 @@ export default function FarkleCalculator() {
         );
       })}
 
-      {/* Current / Final round points */}
       <h2 className="font-bold">
         {finalRound.active
           ? `Final Round Points: ${finalRound.turnPoints}`
@@ -346,7 +373,7 @@ export default function FarkleCalculator() {
       </h2>
 
       {/* ===============================
-         ACTION BUTTONS (moved above categories)
+         ACTION BUTTONS
       ================================ */}
       <div className="flex gap-2 mb-3">
         <button
@@ -376,6 +403,52 @@ export default function FarkleCalculator() {
           Farkle
         </button>
       </div>
+
+      {/* ===============================
+         STEAL POOL
+      ================================ */}
+      {isStealPhase && stealPool.length > 0 && (
+        <div className="bg-yellow-200 p-3 rounded space-y-2 mb-3">
+          <div className="flex justify-between items-center">
+            <p>Original Farkler: <strong>{players[previousPlayerIndex]?.name}</strong></p>
+            <p>Current Stealer: <strong>{players[stealIndex]?.name}</strong></p>
+          </div>
+          <ul className="list-disc pl-5">
+            {stealPool.map((c, idx) => {
+              const contributorIdx = players.findIndex(p => p.name === c.player);
+              const highlight =
+                contributorIdx === lastContributorIndex
+                  ? "font-bold text-green-700"
+                  : "";
+              return (
+                <li key={idx} className={highlight}>
+                  {c.player} added {c.points} points
+                </li>
+              );
+            })}
+          </ul>
+          <div className="flex gap-2 mt-2">
+            <button
+              className="bg-green-600 text-white p-2 flex-1"
+              onClick={claimSteal}
+            >
+              Claim Steal
+            </button>
+            <button
+              className="bg-red-600 text-white p-2 flex-1"
+              onClick={stealFarkle}
+            >
+              Farkle (Pass)
+            </button>
+            <button
+              className="bg-blue-600 text-white p-2 flex-1"
+              onClick={declineFarkle}
+            >
+              Decline Steal
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ===============================
          SCORING CATEGORIES
